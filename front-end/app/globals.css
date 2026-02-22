@@ -1,0 +1,39 @@
+/* 1. Node container ko Flexbox banayein */
+html body .rete .node[data-testid="node"] {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important; /* Content ke hisaab se stretch hoga */
+  background: rgba(110, 136, 255, 0.9) !important; /* Blue theme */
+  border: 2px solid #4c58bf !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+}
+
+/* 2. "In" Socket (Input) - Sabse Upar (-3) */
+html body .rete .node div[data-testid="input-in"] {
+  order: -3 !important; 
+  display: flex !important;
+  margin-bottom: 8px !important;
+}
+
+/* 3. Title (Send Message) - Doosre number par (-2) */
+html body .rete .node .title {
+  order: -2 !important;
+  display: block !important;
+  color: white !important;
+  font-weight: bold !important;
+}
+
+/* 4. Message & Buttons Controls - Beech mein (0) */
+html body .rete .node .control {
+  order: 0 !important;
+  display: block !important;
+}
+
+/* 5. Outputs (Continue & Dynamic Buttons) - Sabse Niche (1) */
+html body .rete .node .output {
+  order: 1 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin: 4px 0 !important;
+}
