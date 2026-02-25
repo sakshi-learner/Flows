@@ -1,12 +1,11 @@
-import React from "react";
 import { NodeEditor, ClassicPreset } from "rete";
 import { AreaPlugin, AreaExtensions } from "rete-area-plugin";
 import { ConnectionPlugin, Presets as ConnectionPresets } from "rete-connection-plugin";
 import { ReactPlugin, Presets as ReactPresets } from "rete-react-plugin";
 import { createRoot } from "react-dom/client";
-import { MinimapExtra, MinimapPlugin } from "rete-minimap-plugin";
+import { MinimapPlugin } from "rete-minimap-plugin";
 import { AutoArrangePlugin, Presets as ArrangePresets } from "rete-auto-arrange-plugin";
-
+import { CustomNode } from "./controls/CustomNode";
 
 import type { FlowDefinition } from "@/types/flow";
 import { makeMessageNode, socket, syncButtonOutputs } from "./nodes";
@@ -15,6 +14,8 @@ import { exportDefinition as exportDef } from "./serializer";
 
 import { TextControlView } from "./controls/TextControlView";
 import { ButtonsControlView } from "./controls/ButtonsControlView";
+import { CustomSocket } from "./controls/CustomSocket";
+import { CustomConnection } from "./controls/CustomConnection";
 
 
 type InitArgs = { el: HTMLElement; definition: FlowDefinition };
@@ -41,7 +42,7 @@ function hasOutput(node: any, key: string) {
 function applyNodeSize(n: any) {
   const buttons = Array.isArray(n.data?.buttons) ? n.data.buttons.length : 0;
   n.width = 280;
-  n.height =  280+ buttons * 60; 
+  n.height = 280 + buttons * 60;
 }
 
 export async function initReteEditor({ el, definition }: InitArgs) {
@@ -74,29 +75,29 @@ export async function initReteEditor({ el, definition }: InitArgs) {
   };
 
   connection.addPreset(ConnectionPresets.classic.setup());
-
-reactRender.addPreset(
+  
+  reactRender.addPreset(
   ReactPresets.classic.setup({
     customize: {
-      control(data: any) {
-        
-        const control = data?.payload;
-        if (!control) {
-          return ReactPresets.classic.Control;
+      node(context:any) {
+        if (context.payload.label === "Send Message") {
+          return CustomNode;
         }
-        const controlId = (control as any).id;
-
-        if (controlId === 'buttons-control') {
-          return ButtonsControlView; 
-        }
-        
-        if (controlId === 'text-control') {
-          return TextControlView; 
-        }
-
-        return ReactPresets.classic.Control;
+        return ReactPresets.classic.Node;
       },
-    },
+      socket(context:any) {
+        return CustomSocket;
+      },
+      connection(context:any) {
+        return CustomConnection;
+      },
+      control(data: any) {
+        const control = data.payload;
+        if (control.id === 'buttons-control') return ButtonsControlView; 
+        if (control.id === 'text-control') return TextControlView; 
+        return ReactPresets.classic.Control;
+      }
+    }
   })
 );
   reactRender.addPreset(ReactPresets.minimap.setup({ size: 150 }));
@@ -270,7 +271,7 @@ reactRender.addPreset(
           try {
             const id = uid("n");
             const n = makeMessageNode(id, "New message");
-            
+
             n.meta = {
               area: area,
               editor: editor
@@ -301,7 +302,7 @@ reactRender.addPreset(
   const addNode = async (x = 200, y = 200) => {
     const id = uid("n");
     const n = makeMessageNode(id, "New message");
-    
+
     n.meta = {
       area: area,
       editor: editor

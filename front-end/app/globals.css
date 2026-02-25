@@ -1,39 +1,50 @@
-/* 1. Node container ko Flexbox banayein */
+/* Node Body */
 html body .rete .node[data-testid="node"] {
   display: flex !important;
   flex-direction: column !important;
-  height: auto !important; /* Content ke hisaab se stretch hoga */
-  background: rgba(110, 136, 255, 0.9) !important; /* Blue theme */
+  position: relative !important;
+  padding: 45px 20px 60px 20px !important; /* Top/Bottom padding for absolute sockets */
+  background: rgba(110, 136, 255, 0.95) !important;
   border: 2px solid #4c58bf !important;
   border-radius: 12px !important;
-  padding: 10px !important;
+  overflow: visible !important;
 }
 
-/* 2. "In" Socket (Input) - Sabse Upar (-3) */
-html body .rete .node div[data-testid="input-in"] {
-  order: -3 !important; 
+/* "In" Socket - Fixed Top-Left */
+html body .rete .node .input[data-testid="input-in"] {
+  position: absolute !important;
+  top: 15px !important;
+  left: -12px !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+}
+
+/* "Continue" (Out) Socket - Fixed Bottom-Right */
+html body .rete .node .output[data-testid="output-next"] {
+  position: absolute !important;
+  bottom: 15px !important;
+  right: -12px !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+}
+
+/* Button Sockets - Row Alignment */
+/* Isse sockets buttons ke theek saamne (right side) aayenge */
+html body .rete .node .output[data-testid^="output-btn"] {
   display: flex !important;
-  margin-bottom: 8px !important;
-}
-
-/* 3. Title (Send Message) - Doosre number par (-2) */
-html body .rete .node .title {
-  order: -2 !important;
-  display: block !important;
-  color: white !important;
-  font-weight: bold !important;
-}
-
-/* 4. Message & Buttons Controls - Beech mein (0) */
-html body .rete .node .control {
-  order: 0 !important;
-  display: block !important;
-}
-
-/* 5. Outputs (Continue & Dynamic Buttons) - Sabse Niche (1) */
-html body .rete .node .output {
+  flex-direction: row-reverse !important; 
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 15px !important;
+  margin: 10px 0 !important;
+  width: 100% !important;
   order: 1 !important;
-  display: flex !important;
-  justify-content: flex-end !important;
-  margin: 4px 0 !important;
+}
+
+/* Sockets Style */
+.rete .socket {
+  width: 14px !important;
+  height: 14px !important;
+  background: #ffffff !important;
+  border: 2px solid #4c58bf !important;
 }
