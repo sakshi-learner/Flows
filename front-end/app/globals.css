@@ -16,7 +16,7 @@ html body .rete .node .input[data-testid="input-in"] {
   top: 15px !important;
   left: -12px !important;
   margin: 0 !important;
-  z-index: 10 !important;
+  /* z-index: 10 !important; */
 }
 
 /* "Continue" (Out) Socket - Fixed Bottom-Right */
@@ -47,4 +47,26 @@ html body .rete .node .output[data-testid^="output-btn"] {
   height: 14px !important;
   background: #ffffff !important;
   border: 2px solid #4c58bf !important;
+}
+
+.fill-area {
+  display: table;
+  z-index: -1;
+  position: absolute;
+  top: -320000px;
+  left: -320000px;
+  width: 640000px;
+  height: 640000px;
+}
+
+.background {
+  background-color: #ffffff;
+  opacity: 1;
+  background-image: linear-gradient(#f1f1f1 3.2px, transparent 3.2px),
+    linear-gradient(90deg, #f1f1f1 3.2px, transparent 3.2px),
+    linear-gradient(#f1f1f1 1.6px, transparent 1.6px),
+    linear-gradient(90deg, #f1f1f1 1.6px, #ffffff 1.6px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  background-position: -3.2px -3.2px, -3.2px -3.2px, -1.6px -1.6px,
+    -1.6px -1.6px;
 }
