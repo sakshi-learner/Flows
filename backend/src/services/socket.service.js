@@ -38,54 +38,58 @@ class SocketService {
   }
 
   async sendMessage(socket, roomId, payload) {
-  try {
-    const engineInput = typeof payload === 'object' ? JSON.stringify(payload) : payload;
-    // 1. Original message save aur broadcast
-    const savedMessage = await MessageService.sendMessage(socket.user.id, roomId, payload);
-    this.io.to(`room:${roomId}`).emit("new_message", savedMessage);
+    try {
+      const engineInput = typeof payload === 'object' ? JSON.stringify(payload) : payload;
+      // 1. Original message save aur broadcast
+      const savedMessage = await MessageService.sendMessage(socket.user.id, roomId, payload);
+      this.io.to(`room:${roomId}`).emit("new_message", savedMessage);
 
-    // 2. Room ke members nikalen (Recipients)
-    const members = await RoomMemberRepository.findAllByRoom(roomId);
-    const recipients = members
-      .map((m) => m.user_id)
-      .filter((id) => id !== socket.user.id);
+      // 2. Room ke members nikalen (Recipients)
+      const members = await RoomMemberRepository.findAllByRoom(roomId);
+      const recipients = members
+        .map((m) => m.user_id)
+        .filter((id) => id !== socket.user.id);
 
-    // 3. LOGIC: Pehle Sender ka state update karein (to resolve their button click)
-    // Hum sirf state update kar rahe hain, responses emit nahi kar rahe sender ke liye
-    await FlowService.handleMessage({
-      roomId,
-      userId: socket.user.id, 
-      text: engineInput,
-      silent: true 
-    });
-
-    // 4. LOGIC: Ab Recipient(s) ke liye flow trigger karein
-    for (const recipientId of recipients) {
-      const outputs = await FlowService.handleMessage({
+      // 3. LOGIC: Pehle Sender ka state update karein (to resolve their button click)
+      // Hum sirf state update kar rahe hain, responses emit nahi kar rahe sender ke liye
+      await FlowService.handleMessage({
         roomId,
-        userId: recipientId, 
-        text: engineInput
+        userId: socket.user.id,
+        text: engineInput,
+        silent: true
       });
 
-      // Bot responses ko room mein emit karein
-      if (outputs && outputs.length > 0) {
-        for (const res of outputs) {
-          await new Promise(resolve => setTimeout(resolve, 800));
-          const botMsg = await MessageRepository.create({
-            room_id: roomId,
-            sender_id: null,
-            type: "text",
-            content: res.text,
-            body: { buttons: res.buttons || [], bot: true, forUserId: recipientId }
-          });
-          this.io.to(`room:${roomId}`).emit("new_message", botMsg);
+      // 4. LOGIC: Ab Recipient(s) ke liye flow trigger karein
+      for (const recipientId of recipients) {
+        const outputs = await FlowService.handleMessage({
+          roomId,
+          userId: recipientId,
+          text: engineInput
+        });
+
+        console.log("recipientId:", recipientId);
+        console.log("outputs:", JSON.stringify(outputs));
+
+
+        // Bot responses ko room mein emit karein
+        if (outputs && outputs.length > 0) {
+          for (const res of outputs) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const botMsg = await MessageRepository.create({
+              room_id: roomId,
+              sender_id: null,
+              type: "text",
+              content: res.text,
+              body: { buttons: res.buttons || [], bot: true, forUserId: recipientId}
+            });
+            this.io.to(`room:${roomId}`).emit("new_message", botMsg);
+          }
         }
       }
+    } catch (err) {
+      console.error("Error:", err);
     }
-  } catch (err) {
-    console.error("Error:", err);
   }
-}
 
   typing(socket, roomId, isTyping) {
     socket.to(`room:${roomId}`).emit('typing', {

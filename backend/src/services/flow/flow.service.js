@@ -67,7 +67,7 @@ class FlowService {
      FLOW RUNTIME / CHAT
   ======================== */
 
-  async handleMessage({ roomId, userId, text, silent = false }) {
+  async handleMessage({ roomId, userId, senderId, text, silent = false }) {
     try {
       let convo = await ConversationRepo.findByRoomAndUser(roomId, userId);
       // first message → create conversation
@@ -110,7 +110,7 @@ class FlowService {
 
       outputs = outputs.map(o => ({
         ...o,
-        forUserId: userId
+        forUserId: senderId
       }));
 
       console.log("Flow Engine Outputs:", outputs);
