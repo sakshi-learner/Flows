@@ -4,9 +4,10 @@ import styled from "styled-components";
 
 const { RefSocket, RefControl } = Presets.classic;
 
-const NodeBox = styled.div`
-  background: rgba(110, 136, 255, 0.95);
-  border: 2px solid #4c58bf;
+const NodeBox = styled.div<{ selected?: boolean }>`
+  background:  #ffffff;
+  border: 2px solid ${(props) => (props.selected ? "#6366f1" : "#e2e8f0")};
+  z-index: ${(props) => (props.selected ? 100 : 1)};
   border-radius: 12px;
   min-width: 300px;
   position: relative;
@@ -15,31 +16,49 @@ const NodeBox = styled.div`
   flex-direction: column;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   overflow: visible !important;
+   &:hover, &:active {
+    z-index: 9999 !important;
+  }
+  &:hover {
+   transform: scale(1);
+   border-color: ${(props) => (props.selected ? "#6366f1" : "#4c58bf")};
+  }  
 `;
 
 export function CustomNode(props: any) {
   const { data, emit } = props;
+  const selected = props.data.selected;
   const { inputs, outputs, controls } = data;
   const buttonsList = data.data.buttons || [];
 
+  // console.log("Custom Node: ", data);
+  // console.log(`Node ${data.label} is selected:`, selected);
+  // console.log(props.data.selected);
+
   return (
-    <NodeBox>
+    <NodeBox selected={selected}>
 
       {/* 1. IN Socket - NO style prop, only positioning wrapper */}
       {inputs.in && (
         <div style={{
           position: 'absolute',
           top: '15px',
-          left: '-9px',   // half of 18px socket width
+          left: '-9px',   
           zIndex: 100
-        }}>
+
+        }}
+          onPointerDown={(e) => {
+            e.stopPropagation();  
+            e.preventDefault();  
+          }}
+        >
           <RefSocket
             name="in"
             side="input"
             socketKey="in"
             nodeId={data.id}
             emit={emit}
-            payload={inputs.in.socket}   // .socket lagao, inputs.in nahi
+            payload={inputs.in.socket}
           />
         </div>
       )}
@@ -47,6 +66,7 @@ export function CustomNode(props: any) {
       {/* Node Title */}
       <div style={{
         color: 'white',
+        background: '#6366f1',
         textAlign: 'center',
         marginBottom: '15px',
         fontWeight: 'bold'
@@ -72,7 +92,7 @@ export function CustomNode(props: any) {
               alignItems: 'center',
               gap: '8px',
               width: '100%',
-              position: 'relative'   // absolute child ke liye
+              position: 'relative'
             }}>
 
               {/* Input Field */}
@@ -110,7 +130,7 @@ export function CustomNode(props: any) {
               {/* Output Socket - NO style prop */}
               {output && (
                 <div style={{
-                  position: 'absolute',
+                  position: 'absolute',//ab
                   right: '-24px',    // node edge ke bahar
                   top: '50%',
                   transform: 'translateY(-50%)'
@@ -121,7 +141,7 @@ export function CustomNode(props: any) {
                     socketKey={outputKey}
                     nodeId={data.id}
                     emit={emit}
-                    payload={output.socket}   // output.socket, sirf output nahi
+                    payload={output.socket}  
                   />
                 </div>
               )}

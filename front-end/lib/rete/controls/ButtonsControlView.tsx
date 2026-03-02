@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 import styled from "styled-components";
 import { Drag } from "rete-react-plugin";
@@ -10,7 +9,6 @@ export function ButtonsControlView(props: any) {
   
   const control = props.data;
   const node = control?.parent || props.node || props.parent;
-  
   const [, setTick] = React.useState(0);
 
   const buttons = (control?.buttons && control.buttons.length > 0) 
@@ -18,8 +16,6 @@ export function ButtonsControlView(props: any) {
     : (node?.data?.buttons || []);
 
   const updateNode = async (nextButtons: any[]) => {
-    console.log("Updating Node with:", nextButtons);
-
     if (control) {
       control.buttons = nextButtons;
       if (typeof control.setButtons === 'function') {
@@ -81,16 +77,6 @@ export function ButtonsControlView(props: any) {
     <Wrap onPointerDown={e => e.stopPropagation()}>
       <Label>BUTTONS</Label>
       <Drag.NoDrag>
-        {/* {buttons.map((btn: any) => (
-          <BtnRow key={btn.id}>
-            <Input
-              value={btn.label}
-              onChange={e => updateLabel(btn.id, e.target.value)}
-              placeholder="Button text"
-            />
-            <DelBtn onClick={() => removeButton(btn.id)}>✕</DelBtn>
-          </BtnRow>
-        ))} */}
         <AddBtn onClick={addButton}>+ Add Button</AddBtn>
       </Drag.NoDrag>
     </Wrap>
@@ -98,8 +84,5 @@ export function ButtonsControlView(props: any) {
 }
 
 const Wrap = styled.div` padding: 10px; border-top: 1px solid rgba(0,0,0,0.05);`;
-const Label = styled.div` font-size: 10px; font-weight: bold; opacity: 0.4; margin-bottom: 6px; letter-spacing: 0.5px; `;
-const BtnRow = styled.div` display: flex; gap: 4px; margin-bottom: 5px; align-items: center; height:40px`;
-const Input = styled.input` flex: 1; padding: 5px 8px; border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 12px; background: white; color: black; &:focus { outline: none; border-color: #4a90e2; } `;
-const DelBtn = styled.button` background: #fff0f0; color: #ff4d4f; border: 1px solid #ffd6d6; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; &:hover { background: #ff4d4f; color: white; } `;
+const Label = styled.div` font-size: 10px; font-weight: bold; opacity: 0.5; margin-bottom: 6px; letter-spacing: 0.5px; `;
 const AddBtn = styled.button` width: 100%; margin-top: 5px; padding: 6px; cursor: pointer; background: transparent; border: 1px dashed rgba(0,0,0,0.2); border-radius: 6px; font-size: 11px; color: #666; font-weight: 500; &:hover { background: rgba(0,0,0,0.02); border-color: #4a90e2; color: #4a90e2; } `;

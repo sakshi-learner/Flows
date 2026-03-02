@@ -29,10 +29,6 @@ export function makeMessageNode(nodeId: string, text = "", buttons: Btn[] = []) 
 export async function syncButtonOutputs(node: any, buttons: any[], editor?: any) {
   if (!node) return;
 
-  const baseHeight = 220; 
-  const buttonSpacing = 60;
-  node.height = baseHeight + (buttons.length * buttonSpacing);
-
   const requiredKeys = new Set(buttons.map((b) => `btn:${b.id}`));
   const currentKeys = Object.keys(node.outputs).filter(k => k.startsWith("btn:"));
 

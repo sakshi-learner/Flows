@@ -1,5 +1,5 @@
+//ChatContext
 "use client";
-
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Message, Room, User } from "@/types";
 import { api } from "@/lib/api";
@@ -93,6 +93,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     const room = res.data?.room ?? res.room;
     const history = res.data?.messages ?? res.messages ?? [];
+
+    console.log("History from DB:", history);
+    console.log("First bot message:", history.find((m: any) => m.sender_id === null));
 
     if (!room?.id) throw new Error("Room id missing from /chat/direct response");
 

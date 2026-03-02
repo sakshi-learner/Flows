@@ -82,8 +82,5 @@ out.nodes[nodeId] = {
       })),
       position: position 
     };  }
-
-  console.log("Node positions: ", nodes.map(n => ({ id: n.id, position: n.position })));
-
   return out;
 }

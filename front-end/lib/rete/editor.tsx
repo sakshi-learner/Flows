@@ -14,7 +14,7 @@ import { TextControlView } from "./controls/TextControlView";
 import { ButtonsControlView } from "./controls/ButtonsControlView";
 import { CustomSocket } from "./controls/CustomSocket";
 import { CustomConnection } from "./controls/CustomConnection";
-
+import {addCustomBackground} from  "./controls/CustomBackground";
 
 type InitArgs = { el: HTMLElement; definition: FlowDefinition };
 type DefButton = { id: string; label: string; next?: string | null };
@@ -55,6 +55,8 @@ export async function initReteEditor({ el, definition }: InitArgs) {
 
   arrange.addPreset(ArrangePresets.classic.setup());
 
+  addCustomBackground(area);
+
   editor.use(area);
   area.use(connection);
   area.use(reactRender);
@@ -86,10 +88,8 @@ export async function initReteEditor({ el, definition }: InitArgs) {
           {...props}
           isSelected={selectedConnIds.has(props.data.id)}
           onDelete={async (id: string) => {
-            console.log("Deleting connection:", id);
             await editor.removeConnection(id);
             selectedConnIds.delete(id);
-            // selector.unpick({ id, label: "connection" }); 
 
           }}
           click={() => {
@@ -347,48 +347,69 @@ export async function initReteEditor({ el, definition }: InitArgs) {
 
   // ---------- Drop create node ----------
   connection.addPipe((context: any) => {
-    if (context.type === "connectiondrop") {
-      const d = context.data;
-      const droppedOnEmpty = !d?.created && !d?.socket;
+  if (context.type === "connectiondrop") {
+    const d = context.data;
 
-      if (droppedOnEmpty && d?.initial?.nodeId && d?.initial?.key) {
-        queueMicrotask(async () => {
-          try {
-            const sourceNodeId = d.initial.nodeId;
-            const sourceOutput = d.initial.key;
+    // Socket pe successfully connected — kuch mat karo
+    if (d?.created) return context;
 
-            const sourceNode = editor.getNodes().find((x: any) => x.id === sourceNodeId);
-            if (!sourceNode) return;
+    if (!d?.initial?.nodeId || !d?.initial?.key) return context;
 
-            // ✅ Existing connection pehle hatao
-            const existingConns = editor.getConnections().filter(
-              (c: any) => c.source === sourceNodeId && c.sourceOutput === sourceOutput
-            );
-            for (const c of existingConns) await editor.removeConnection(c.id);
+    const sourceNodeId = d.initial.nodeId;
+    const sourceOutput = d.initial.key;
 
-            const id = uid("n");
-            const n = makeMessageNode(id, "New message");
-            n.meta = { area, editor };
-            applyNodeSize(n);
+    // ✅ lastPointer se check karo koi node hai kya wahan
+    const targetNode = editor.getNodes().find((node: any) => {
+      if (node.id === sourceNodeId) return false; // self loop skip
+      const view = area.nodeViews.get(node.id);
+      if (!view) return false;
+      const pos = view.position;
+      return (
+        lastPointer.x >= pos.x &&
+        lastPointer.x <= pos.x + (node.width ?? 280) &&
+        lastPointer.y >= pos.y &&
+        lastPointer.y <= pos.y + (node.height ?? 300)
+      );
+    });
 
-            await editor.addNode(n);
-            await area.translate(n.id, {
-              x: lastPointer.x - 140,  // ✅ center karo
-              y: lastPointer.y - 20,
-            });
+    queueMicrotask(async () => {
+      try {
+        const sourceNode = editor.getNodes().find((x: any) => x.id === sourceNodeId);
+        if (!sourceNode) return;
 
-            await editor.addConnection(
-              new ClassicPreset.Connection(sourceNode, sourceOutput, n, "in")
-            );
+        // Existing connection hatao
+        const existingConns = editor.getConnections().filter(
+          (c: any) => c.source === sourceNodeId && c.sourceOutput === sourceOutput
+        );
+        for (const c of existingConns) await editor.removeConnection(c.id);
 
-          } catch (e) {
-            console.error(e);
-          }
-        });
+        if (targetNode) {
+          // ✅ Node pe drop hua — us node se connect karo
+          await editor.addConnection(
+            new ClassicPreset.Connection(sourceNode, sourceOutput, targetNode, "in")
+          );
+        } else {
+          // ✅ Empty canvas pe drop — naya node banao
+          const id = uid("n");
+          const n = makeMessageNode(id, "New message");
+          n.meta = { area, editor };
+          applyNodeSize(n);
+          await editor.addNode(n);
+          await area.translate(n.id, {
+            x: lastPointer.x - 140,
+            y: lastPointer.y - 20,
+          });
+          await editor.addConnection(
+            new ClassicPreset.Connection(sourceNode, sourceOutput, n, "in")
+          );
+        }
+      } catch (e) {
+        console.error(e);
       }
-    }
-    return context;
-  });
+    });
+  }
+  return context;
+});
   // ---------------- API ----------------
   const addNode = async (x = 200, y = 200) => {
     const id = uid("n");
