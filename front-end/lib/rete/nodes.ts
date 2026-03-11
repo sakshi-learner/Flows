@@ -1,6 +1,7 @@
 import { ClassicPreset } from "rete";
 import { ButtonsControl } from "./controls/ButtonsControl";
 import { TextControl } from "./controls/TextControl";
+import { ImageControl } from "./controls/imageControl";
 export const socket = new ClassicPreset.Socket("socket");
 
 export type Btn = { id: string; label: string; next?: string | null };
@@ -23,6 +24,83 @@ export function makeMessageNode(nodeId: string, text = "", buttons: Btn[] = []) 
   node.addControl("buttons", buttonsControl);
 
   syncButtonOutputs(node, buttons);
+  return node;
+}
+
+// export function makeImageNode(nodeId: string) {
+//   console.log("makeImageNode is called");
+//   const node = new ClassicPreset.Node("Send Image");
+//   node.data = {
+//     nodeId,
+//     type: "image",
+//     sourceType: "url",
+//     url: "",
+//     caption: "",
+//     variableName: "",
+//     fileName: "",
+//   } as any;
+//   node.addInput("in", new ClassicPreset.Input(socket, "in"));
+//   node.addOutput("next", new ClassicPreset.Output(socket, "next"));
+//   const ctrl = new ImageControl(
+//     nodeId,
+//     {
+//       sourceType: "url",
+//       url: "",
+//       caption: "",
+//       variableName: "",
+//       fileName: "",
+//     },
+//     (patch) => {
+//       Object.assign(node.data as any, patch);
+//       Object.assign(ctrl.data, patch);
+//     },
+//     () => {
+//       // Node height recalculate
+//       const d = node.data as any;
+//       const hasPreview = (d.sourceType === "url" || d.sourceType === "upload") && d.url;
+//       node.height = hasPreview ? 440 : 300;
+//     }
+//   );
+//   node.addControl("image", ctrl);
+//   node.width = 280;
+//   node.height = 300;
+//   return node;
+// }
+
+export function makeImageNode(nodeId: string, existingData?: any ,) {
+  const node = new ClassicPreset.Node("Send Image");
+
+  // 1. Initialize data with defaults OR existing data from DB
+  node.data = {
+    nodeId,
+    type: "image",
+    sourceType: existingData?.sourceType || "url",
+    url: existingData?.url || "",
+    caption: existingData?.caption || "",
+    publicId: existingData?.publicId || null, 
+    fileName: existingData?.fileName || "",
+  } as any;
+
+  node.addInput("in", new ClassicPreset.Input(socket, "in"));
+  node.addOutput("next", new ClassicPreset.Output(socket, "next"));
+
+  // 2. Pass the ACTUAL node.data reference to the control
+  const ctrl = new ImageControl(
+    nodeId,
+    node.data as any, // Use the reference
+    (patch) => {
+      // Update both references
+      Object.assign(node.data as any, patch);
+      // If ImageControl doesn't use the same ref, update it too
+      if(ctrl.data !== node.data) Object.assign(ctrl.data, patch);
+    },
+    () => {
+      const d = node.data as any;
+      node.height = d.url ? 440 : 300;
+    }
+  );
+
+  node.addControl("image", ctrl);
   return node;
 }
 

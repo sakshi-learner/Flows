@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors")
@@ -28,6 +29,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/oauth/facebook", require("./routes/facebook.routes"));
 app.use("/api/oauth/google", require("./routes/google.routes"));
 app.use('/api/flows', require('./routes/flow.routes'));
+app.use('/api/upload', require('./routes/upload.route'));
 
 
 

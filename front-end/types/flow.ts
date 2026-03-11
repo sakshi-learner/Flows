@@ -1,6 +1,7 @@
 // /types/flow.ts
 export type FlowDefinition = {
   start: string;
+  start_node_id?: string; 
   nodes: Record<
     string,
     {

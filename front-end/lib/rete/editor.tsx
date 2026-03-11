@@ -7,30 +7,23 @@ import { MinimapPlugin } from "rete-minimap-plugin";
 import { AutoArrangePlugin, Presets as ArrangePresets } from "rete-auto-arrange-plugin";
 import { CustomNode } from "./controls/CustomNode";
 import type { FlowDefinition } from "@/types/flow";
-import { makeMessageNode, socket, syncButtonOutputs } from "./nodes";
+import { makeMessageNode, socket, syncButtonOutputs , makeImageNode} from "./nodes";
 import { uid } from "./id";
 import { exportDefinition as exportDef } from "./serializer";
 import { TextControlView } from "./controls/TextControlView";
 import { ButtonsControlView } from "./controls/ButtonsControlView";
 import { CustomSocket } from "./controls/CustomSocket";
 import { CustomConnection } from "./controls/CustomConnection";
-import {addCustomBackground} from  "./controls/CustomBackground";
+import { addCustomBackground } from "./controls/CustomBackground";
+import { normalizeButtons } from "./serializer";
+import { ImageControlView } from "./controls/imageControlView";
+
 
 type InitArgs = { el: HTMLElement; definition: FlowDefinition };
 type DefButton = { id: string; label: string; next?: string | null };
 type DefNode = { text?: string; next?: string | null; buttons?: DefButton[]; position?: { x: number; y: number }; };
 
-function normButtons(list: any): DefButton[] {
-  if (!Array.isArray(list)) return [];
-  return list
-    .filter((x) => x && typeof x === "object")
-    .map((x: any) => ({
-      id: String(x.id ?? ""),
-      label: String(x.label ?? ""),
-      next: x.next == null ? null : String(x.next),
-    }))
-    .filter((b) => b.id.length > 0);
-}
+
 
 function hasOutput(node: any, key: string) {
   const outputs = node.outputs;
@@ -128,6 +121,10 @@ export async function initReteEditor({ el, definition }: InitArgs) {
           if (context.payload.label === "Send Message") {
             return CustomNode;
           }
+          if (context.payload.label === "Send Image"){
+            console.log("send Image node custom node");
+            return CustomNode;
+          }
           return ReactPresets.classic.Node;
         },
         socket(context: any) {
@@ -138,7 +135,7 @@ export async function initReteEditor({ el, definition }: InitArgs) {
           const isconnected = socketKey ? connectedSockets.has(socketKey) : false;
           const side = context.side;
           return function BoundSocket(props: any) {
-            return <CustomSocket {...props} isconnected={isconnected}  side={side} />;
+            return <CustomSocket {...props} isconnected={isconnected} side={side} />;
           };
         },
         connection(context: any) {
@@ -146,8 +143,20 @@ export async function initReteEditor({ el, definition }: InitArgs) {
         },
         control(data: any) {
           const control = data.payload;
-          if (control.id === 'buttons-control') return ButtonsControlView;
-          if (control.id === 'text-control') return TextControlView;
+          console.log("data for control",data);
+          if (control.id === 'buttons-control') {
+            console.log("button control render")
+            return ButtonsControlView;
+          }
+          if (control.id === 'text-control'){
+            console.log("textControl render!")
+            return TextControlView;
+          }
+          if (control.id === "image-control") {
+            console.log("image control data",control.id)
+            console.log("image control view !!!");
+            return ImageControlView;
+          }
           return ReactPresets.classic.Control;
         }
       }
@@ -247,21 +256,45 @@ export async function initReteEditor({ el, definition }: InitArgs) {
     }
     return ctx;
   });
-
+  
   // ---------- LOAD ----------
   const nodeIdToEditorNode = new Map<string, any>();
-  const defNodes: Record<string, DefNode> = (definition?.nodes ?? {}) as any;
-  const nodeIds = Object.keys(defNodes);
+
+  const rawNodes = definition?.nodes ?? [];
+  const rawEdges = (definition as any)?.edges ?? [];
+
+  function extractNodeData(defNode: any) {
+    if (defNode.data?.msgContent) {
+      const mc = defNode.data.msgContent;
+
+      if (mc.type === "text") {
+        return {
+          text: mc.text?.body ?? "",
+          buttons: [],
+          position: defNode.position ?? null,
+        };
+      }
+
+      if (mc.type === "interactive") {
+        const rawBtns = mc.interactive?.action?.buttons ?? [];
+        const buttons = rawBtns.map((b: any) => ({
+          id: b.reply?.id ?? b.id,
+          label: b.reply?.title ?? b.label,
+        }));
+        return {
+          text: mc.interactive?.body?.text ?? "",
+          buttons,
+          position: defNode.position ?? null,
+        };
+      }
+    }
+    return { text: "", buttons: [], position: defNode.position ?? null };
+  }
 
   const ensureOneNode = async () => {
     const firstId = uid("n");
     const node = makeMessageNode(firstId, "Hello 👋");
-    console.log("Created Node: ", node);
-    node.meta = node.meta || {};
-    node.meta = {
-      area: area,
-      editor: editor
-    };
+    node.meta = { area, editor };
     applyNodeSize(node);
     await editor.addNode(node);
     await area.translate(node.id, { x: 120, y: 120 });
@@ -269,74 +302,105 @@ export async function initReteEditor({ el, definition }: InitArgs) {
     return node;
   };
 
-  if (nodeIds.length === 0) {
+  if (!Array.isArray(rawNodes) || rawNodes.length === 0) {
     await ensureOneNode();
   } else {
-    // 1) create all nodes first
+    // 1) Saare nodes banao
     let i = 0;
-    for (const nodeId of nodeIds) {
-      const data = defNodes[nodeId] || {};
-      const n = makeMessageNode(nodeId, data.text || "");
+    for (const defNode of rawNodes) {
+  const nodeId = String(defNode.id);
+  const { text, buttons, position } = extractNodeData(defNode);
+  const nodeType = defNode.nodeType ?? defNode.type;
 
-      n.meta = n.meta || {};
-      n.meta = {
-        area: area,
-        editor: editor
-      };
+  console.log("node typeeeeessss", defNode,",,,,,,,,,,,,,,",nodeType)
+  let n: any;
 
-      const buttons = normButtons(data.buttons);
-      n.data.buttons = buttons.map((b) => ({ id: b.id, label: b.label, next: b.next ?? null }));
+  // ✅ nodeType se sahi node banao
+  if (nodeType === "imageMessageNode") {
+    n = makeImageNode(nodeId);
+    // Image data restore karo
+    const img = defNode.data?.msgContent?.image;
+     if (img) {
+    const restored = {
+      sourceType: img.sourceType ?? "url",
+      url: img.link ?? "",        
+      caption: img.caption ?? "",
+      publicId: img.public_id ?? null,
+      fileName: img.fileName ?? "",
+      variableName: "",
+    };
+    Object.assign(n.data, restored);
+    const ctrl = (n.controls as any)?.image;
+    if (ctrl) Object.assign(ctrl.data, restored);
+  }
+  } else if (nodeType === "buttonMessageNode") {
+    n = makeMessageNode(nodeId, text, []);
+    const normBtns = normalizeButtons(buttons);
+    n.data.buttons = normBtns.map((b: any) => ({
+      id: b.id, label: b.label, next: null,
+    }));
+    syncButtonOutputs(n, n.data.buttons);
+  } else {
+    // simpleMessageNode / default
+    n = makeMessageNode(nodeId, text, []);
+  }
 
-      // outputs must reflect buttons BEFORE connections
-      syncButtonOutputs(n, n.data.buttons);
+  n.meta = { area, editor };
+  applyNodeSize(n);
+  await editor.addNode(n);
+  nodeIdToEditorNode.set(nodeId, n);
 
+  if (position) {
+    await area.translate(n.id, position);
+  } else {
+    await area.translate(n.id, { x: 120 + i * 320, y: 120 });
+  }
+  i++;
+}
+    // 2) Edges se connections banao
+    for (const edge of rawEdges) {
+      const sourceNodeId = String(edge.source);
+      const targetNodeId = String(edge.target);
+      const sourceHandle = String(edge.sourceHandle ?? "");
 
-      applyNodeSize(n);
-      await editor.addNode(n);
-      nodeIdToEditorNode.set(nodeId, n);
+      const from = nodeIdToEditorNode.get(sourceNodeId);
+      const to = nodeIdToEditorNode.get(targetNodeId);
 
-      if (data.position) {
-        await area.translate(n.id, data.position);
+      if (!from || !to) continue;
+
+      // sourceHandle === sourceNodeId → continue/next connection
+      // sourceHandle === button ID → button connection
+      if (sourceHandle === sourceNodeId) {
+        // ✅ Continue connection
+        await editor.addConnection(
+          new ClassicPreset.Connection(from, "next", to, "in")
+        );
       } else {
-        // Fallback if it's a new node with no saved position
-        await area.translate(n.id, { x: 120 + i * 320, y: 120 });
-      }
-      i++;
-    }
-
-    // 2) create connections AFTER all nodes exist
-    for (const nodeId of nodeIds) {
-      const from = nodeIdToEditorNode.get(nodeId);
-      const data = defNodes[nodeId] || {};
-
-      // (A) Continue
-      if (data.next && nodeIdToEditorNode.has(String(data.next))) {
-        const to = nodeIdToEditorNode.get(String(data.next));
-        await editor.addConnection(new ClassicPreset.Connection(from, "next", to, "in"));
-        console.log(`Connection created from node ${from.id} to ${to.id}`);
-      }
-
-      // (B) Buttons
-      const buttons = normButtons(data.buttons);
-      for (const b of buttons) {
-        if (!b.next) continue;
-        const targetId = String(b.next);
-        if (!nodeIdToEditorNode.has(targetId)) continue;
-
-        const to = nodeIdToEditorNode.get(targetId);
-
-        const outKey = `btn:${b.id}`;
+        // ✅ Button connection — sourceHandle is button ID
+        const outKey = `btn:${sourceHandle}`;
         if (!hasOutput(from, outKey)) {
-          // safety (should already exist due to syncButtonOutputs)
-          from.addOutput(outKey, new ClassicPreset.Output(socket, b.label));
+          // Button output already hona chahiye syncButtonOutputs se
+          // Safety ke liye add karo
+          const btn = from.data?.buttons?.find((b: any) => b.id === sourceHandle);
+          from.addOutput(outKey, new ClassicPreset.Output(socket, btn?.label ?? ""));
         }
-
-        await editor.addConnection(new ClassicPreset.Connection(from, outKey, to, "in"));
+        await editor.addConnection(
+          new ClassicPreset.Connection(from, outKey, to, "in")
+        );
       }
     }
   }
 
-
+  // Start node
+  const def = definition as any;
+  const startId = def?.start_node_id ?? def?.start;
+  if (startId) {
+    const startN = editor.getNodes().find(
+      (n: any) => String(n.data?.nodeId) === String(startId)
+    );
+    if (startN) startNodeId = startN.id;
+  }
+  if (startNodeId == null) startNodeId = editor.getNodes()[0]?.id ?? null;
 
   // ---------- start node ----------
   if (definition?.start) {
@@ -347,74 +411,73 @@ export async function initReteEditor({ el, definition }: InitArgs) {
 
   // ---------- Drop create node ----------
   connection.addPipe((context: any) => {
-  if (context.type === "connectiondrop") {
-    const d = context.data;
+    if (context.type === "connectiondrop") {
+      const d = context.data;
 
-    // Socket pe successfully connected — kuch mat karo
-    if (d?.created) return context;
+      // Socket pe successfully connected 
+      if (d?.created) return context;
 
-    if (!d?.initial?.nodeId || !d?.initial?.key) return context;
+      if (!d?.initial?.nodeId || !d?.initial?.key) return context;
 
-    const sourceNodeId = d.initial.nodeId;
-    const sourceOutput = d.initial.key;
+      const sourceNodeId = d.initial.nodeId;
+      const sourceOutput = d.initial.key;
 
-    // ✅ lastPointer se check karo koi node hai kya wahan
-    const targetNode = editor.getNodes().find((node: any) => {
-      if (node.id === sourceNodeId) return false; // self loop skip
-      const view = area.nodeViews.get(node.id);
-      if (!view) return false;
-      const pos = view.position;
-      return (
-        lastPointer.x >= pos.x &&
-        lastPointer.x <= pos.x + (node.width ?? 280) &&
-        lastPointer.y >= pos.y &&
-        lastPointer.y <= pos.y + (node.height ?? 300)
-      );
-    });
-
-    queueMicrotask(async () => {
-      try {
-        const sourceNode = editor.getNodes().find((x: any) => x.id === sourceNodeId);
-        if (!sourceNode) return;
-
-        // Existing connection hatao
-        const existingConns = editor.getConnections().filter(
-          (c: any) => c.source === sourceNodeId && c.sourceOutput === sourceOutput
+      // ✅ lastPointer se check karo koi node hai kya wahan
+      const targetNode = editor.getNodes().find((node: any) => {
+        if (node.id === sourceNodeId) return false; // self loop skip
+        const view = area.nodeViews.get(node.id);
+        if (!view) return false;
+        const pos = view.position;
+        return (
+          lastPointer.x >= pos.x &&
+          lastPointer.x <= pos.x + (node.width ?? 280) &&
+          lastPointer.y >= pos.y &&
+          lastPointer.y <= pos.y + (node.height ?? 300)
         );
-        for (const c of existingConns) await editor.removeConnection(c.id);
+      });
 
-        if (targetNode) {
-          // ✅ Node pe drop hua — us node se connect karo
-          await editor.addConnection(
-            new ClassicPreset.Connection(sourceNode, sourceOutput, targetNode, "in")
+      queueMicrotask(async () => {
+        try {
+          const sourceNode = editor.getNodes().find((x: any) => x.id === sourceNodeId);
+          if (!sourceNode) return;
+
+          // Existing connection hatao
+          const existingConns = editor.getConnections().filter(
+            (c: any) => c.source === sourceNodeId && c.sourceOutput === sourceOutput
           );
-        } else {
-          // ✅ Empty canvas pe drop — naya node banao
-          const id = uid("n");
-          const n = makeMessageNode(id, "New message");
-          n.meta = { area, editor };
-          applyNodeSize(n);
-          await editor.addNode(n);
-          await area.translate(n.id, {
-            x: lastPointer.x - 140,
-            y: lastPointer.y - 20,
-          });
-          await editor.addConnection(
-            new ClassicPreset.Connection(sourceNode, sourceOutput, n, "in")
-          );
+          for (const c of existingConns) await editor.removeConnection(c.id);
+
+          if (targetNode) {
+            // ✅ Node pe drop hua — us node se connect karo
+            await editor.addConnection(
+              new ClassicPreset.Connection(sourceNode, sourceOutput, targetNode, "in")
+            );
+          } else {
+            // ✅ Empty canvas pe drop — naya node banao
+            const id = uid("n");
+            const n = makeMessageNode(id, "New message");
+            n.meta = { area, editor };
+            applyNodeSize(n);
+            await editor.addNode(n);
+            await area.translate(n.id, {
+              x: lastPointer.x - 140,
+              y: lastPointer.y - 20,
+            });
+            await editor.addConnection(
+              new ClassicPreset.Connection(sourceNode, sourceOutput, n, "in")
+            );
+          }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
-      }
-    });
-  }
-  return context;
-});
+      });
+    }
+    return context;
+  });
   // ---------------- API ----------------
   const addNode = async (x = 200, y = 200) => {
     const id = uid("n");
     const n = makeMessageNode(id, "New message");
-
     n.meta = {
       area: area,
       editor: editor
@@ -430,19 +493,32 @@ export async function initReteEditor({ el, definition }: InitArgs) {
     return n;
   };
 
-  const addButtonToSelected = async () => {
-    if (!selectedNodeId) return;
-    const n = editor.getNodes().find((x: any) => x.id === selectedNodeId);
-    if (!n) return;
+  const addImageNode = async (x = 200, y = 200) => {
+  const id = uid("n");
+  const n = makeImageNode(id);
+  n.meta = { area, editor } as any;
+  await editor.addNode(n);
+  await area.translate(n.id, { x, y });
+  await AreaExtensions.zoomAt(area, editor.getNodes(), {
+    margin: 150, maxScale: 0.6,
+  });
+  return n;
+};
 
-    const list = Array.isArray(n.data?.buttons) ? n.data.buttons : [];
-    const newBtn = { id: uid("b"), label: `Button ${list.length + 1}`, next: null };
-    const nextList = [...list, newBtn];
 
-    n.data.buttons = nextList;
-    syncButtonOutputs(n, nextList);
-    area.update("node", n.id);
-  };
+  // const addButtonToSelected = async () => {
+  //   if (!selectedNodeId) return;
+  //   const n = editor.getNodes().find((x: any) => x.id === selectedNodeId);
+  //   if (!n) return;
+
+  //   const list = Array.isArray(n.data?.buttons) ? n.data.buttons : [];
+  //   const newBtn = { id: uid("b"), label: `Button ${list.length + 1}`, next: null };
+  //   const nextList = [...list, newBtn];
+
+  //   n.data.buttons = nextList;
+  //   syncButtonOutputs(n, nextList);
+  //   area.update("node", n.id);
+  // };
 
   const deleteSelected = async () => {
     if (selectedConnIds.size > 0) {
@@ -498,13 +574,25 @@ export async function initReteEditor({ el, definition }: InitArgs) {
     }
   }, 100);
 
+  const zoomIn = async () => {
+    const currentZoom = area.area.transform.k;
+    await area.area.zoom(currentZoom * 1.2, 0, 0);
+  };
+
+  const zoomOut = async () => {
+    const currentZoom = area.area.transform.k;
+    await area.area.zoom(currentZoom * 0.8, 0, 0);
+  };
 
   return {
     destroy,
     export: exportDefinition,
+    zoomOut,
+    zoomIn,
     layout: triggerLayout,
     addNode,
-    addButtonToSelected,
+    addImageNode,
+    // addButtonToSelected,
     deleteSelected,
     setStartSelected,
     getSelected: () => ({ selectedNodeId, selectedConnId, startNodeId }),

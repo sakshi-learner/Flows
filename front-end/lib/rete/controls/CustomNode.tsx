@@ -30,149 +30,113 @@ export function CustomNode(props: any) {
   const selected = props.data.selected;
   const { inputs, outputs, controls } = data;
   const buttonsList = data.data.buttons || [];
+  const nodeType = data.data?.type;
 
-  // console.log("Custom Node: ", data);
-  // console.log(`Node ${data.label} is selected:`, selected);
-  // console.log(props.data.selected);
+  // ✅ Image node alag render karo
+  const isImageNode = nodeType === "image";
 
   return (
     <NodeBox selected={selected}>
 
-      {/* 1. IN Socket - NO style prop, only positioning wrapper */}
+      {/* IN Socket */}
       {inputs.in && (
-        <div style={{
-          position: 'absolute',
-          top: '15px',
-          left: '-9px',   
-          zIndex: 100
-
-        }}
-          onPointerDown={(e) => {
-            e.stopPropagation();  
-            e.preventDefault();  
-          }}
+        <div style={{ position: 'absolute', top: '15px', left: '-9px', zIndex: 100 }}
+          onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
         >
-          <RefSocket
-            name="in"
-            side="input"
-            socketKey="in"
-            nodeId={data.id}
-            emit={emit}
-            payload={inputs.in.socket}
+          <RefSocket name="in" side="input" socketKey="in"
+            nodeId={data.id} emit={emit} payload={inputs.in.socket}
           />
         </div>
       )}
 
       {/* Node Title */}
       <div style={{
-        color: 'white',
-        background: '#6366f1',
-        textAlign: 'center',
-        marginBottom: '15px',
-        fontWeight: 'bold'
+        color: 'white', background: '#6366f1',
+        textAlign: 'center', marginBottom: '15px', fontWeight: 'bold'
       }}>
         {data.label}
       </div>
 
-      {/* 2. Message Textarea */}
-      <div style={{ marginBottom: '10px' }}>
-        <RefControl name="text" emit={emit} payload={controls.text} />
-      </div>
-
-      {/* 3. Button Rows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {buttonsList.map((btn: any) => {
-          const outputKey = `btn:${btn.id}`;
-          const output = outputs[outputKey];
-          const control = controls.buttons;
-
-          return (
-            <div key={btn.id} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              width: '100%',
-              position: 'relative'
-            }}>
-
-              {/* Input Field */}
-              <input
-                value={btn.label}
-                onChange={(e) => control.updateLabel(btn.id, e.target.value)}
-                onPointerDown={(e) => e.stopPropagation()}
-                style={{
-                  flex: 1,
-                  padding: '5px 8px',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  background: 'white',
-                  color: 'black'
-                }}
-              />
-
-              {/* Delete Button */}
-              <button
-                onClick={() => control.removeButton(btn.id)}
-                onPointerDown={(e) => e.stopPropagation()}
-                style={{
-                  background: '#fff0f0',
-                  color: '#ff4d4f',
-                  border: '1px solid #ffd6d6',
-                  borderRadius: '4px',
-                  width: '24px',
-                  height: '24px',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >✕</button>
-
-              {/* Output Socket - NO style prop */}
-              {output && (
-                <div style={{
-                  position: 'absolute',//ab
-                  right: '-24px',    // node edge ke bahar
-                  top: '50%',
-                  transform: 'translateY(-50%)'
-                }}>
-                  <RefSocket
-                    name={outputKey}
-                    side="output"
-                    socketKey={outputKey}
-                    nodeId={data.id}
-                    emit={emit}
-                    payload={output.socket}  
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* 4. Add Button */}
-        <div style={{ marginTop: '5px' }}>
-          <RefControl name="buttons" emit={emit} payload={controls.buttons} />
+      {/* ✅ Image control — only for image nodes */}
+      {isImageNode && controls.image && (
+        <div style={{ marginBottom: "10px" }}>
+          <RefControl name="image" emit={emit} payload={controls.image} />
         </div>
-      </div>
+      )}
 
-      {/* 5. NEXT Socket - NO style prop */}
+      {/* ✅ Text control — only for message nodes */}
+      {!isImageNode && controls.text && (
+        <div style={{ marginBottom: '10px' }}>
+          <RefControl name="text" emit={emit} payload={controls.text} />
+        </div>
+      )}
+
+      {/* ✅ Buttons — only for message nodes that have buttons control */}
+      {!isImageNode && controls.buttons && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {buttonsList.map((btn: any) => {
+            const outputKey = `btn:${btn.id}`;
+            const output = outputs[outputKey];
+            const control = controls.buttons; // ✅ safe — we checked above
+
+            return (
+              <div key={btn.id} style={{
+                display: 'flex', alignItems: 'center',
+                gap: '8px', width: '100%', position: 'relative'
+              }}>
+                <input
+                  value={btn.label}
+                  onChange={(e) => control.updateLabel(btn.id, e.target.value)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  style={{
+                    flex: 1, padding: '5px 8px',
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    borderRadius: '4px', fontSize: '12px',
+                    background: 'white', color: 'black'
+                  }}
+                />
+                <button
+                  onClick={() => control.removeButton(btn.id)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  style={{
+                    background: '#fff0f0', color: '#ff4d4f',
+                    border: '1px solid #ffd6d6', borderRadius: '4px',
+                    width: '24px', height: '24px',
+                    cursor: 'pointer', fontSize: '10px'
+                  }}
+                >✕</button>
+
+                {output && (
+                  <div style={{
+                    position: 'absolute', right: '-24px',
+                    top: '50%', transform: 'translateY(-50%)'
+                  }}>
+                    <RefSocket name={outputKey} side="output"
+                      socketKey={outputKey} nodeId={data.id}
+                      emit={emit} payload={output.socket}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add Button */}
+          <div style={{ marginTop: '5px' }}>
+            <RefControl name="buttons" emit={emit} payload={controls.buttons} />
+          </div>
+        </div>
+      )}
+
+      {/* NEXT Socket */}
       {outputs.next && (
         <div style={{
-          position: 'absolute',
-          bottom: '5px',
-          right: '-12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
+          position: 'absolute', bottom: '5px', right: '-12px',
+          display: 'flex', alignItems: 'center', gap: '4px'
         }}>
           <span style={{ color: 'white', fontSize: '11px' }}>continue</span>
-          <RefSocket
-            name="next"
-            side="output"
-            socketKey="next"
-            nodeId={data.id}
-            emit={emit}
-            payload={outputs.next.socket}   // .socket lagao
+          <RefSocket name="next" side="output" socketKey="next"
+            nodeId={data.id} emit={emit} payload={outputs.next.socket}
           />
         </div>
       )}

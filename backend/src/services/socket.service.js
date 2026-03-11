@@ -73,15 +73,39 @@ class SocketService {
 
         // Bot responses ko room mein emit karein
         if (outputs && outputs.length > 0) {
+          // for (const res of outputs) {
+          //   await new Promise(resolve => setTimeout(resolve, 800));
+          //   const botMsg = await MessageRepository.create({
+          //     room_id: roomId,
+          //     sender_id: null,
+          //     type: "text",
+          //     content: res.text,
+          //     body: { buttons: res.buttons || [], bot: true, forUserId: recipientId}
+          //   });
+          //   this.io.to(`room:${roomId}`).emit("new_message", botMsg);
+          // }
           for (const res of outputs) {
             await new Promise(resolve => setTimeout(resolve, 800));
+
+            // ✅ Handle image vs text
+            const isImage = res.type === "image";
+
             const botMsg = await MessageRepository.create({
               room_id: roomId,
               sender_id: null,
-              type: "text",
-              content: res.text,
-              body: { buttons: res.buttons || [], bot: true, forUserId: recipientId}
+              type: res.type,                           // "image" or "text"
+              content: isImage
+                ? (res.image?.link ?? "")              // image URL as content
+                : (res.text ?? ""),                    // text as content
+              body: {
+                type: res.type,                        // type in body too
+                ...(isImage && { image: res.image }),  // image data
+                buttons: res.buttons || [],
+                bot: true,
+                forUserId: recipientId,
+              }
             });
+
             this.io.to(`room:${roomId}`).emit("new_message", botMsg);
           }
         }
